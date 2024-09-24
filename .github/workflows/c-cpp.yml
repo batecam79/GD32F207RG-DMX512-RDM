@@ -1,9 +1,10 @@
 name: C/C++ CI
 
 on:
-  push:
+  repository_dispatch:
     branches: [ main ]
   pull_request:
+    types: [submitted]
     branches: [ main ]
 
 jobs:
