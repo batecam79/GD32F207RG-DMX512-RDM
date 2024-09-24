@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Install arm-none-eabi
       run: sudo apt install gcc-arm-none-eabi
     - name: make gd32_emac_artnet_dmx_multi
