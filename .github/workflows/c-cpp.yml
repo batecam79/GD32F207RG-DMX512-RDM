@@ -2,6 +2,7 @@ name: C/C++ CI
 
 on:
   repository_dispatch:
+  workflow_dispatch:
     branches: [ main ]
   pull_request:
     types: [submitted]
