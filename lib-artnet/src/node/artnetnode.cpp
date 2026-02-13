@@ -2,8 +2,7 @@
  * @file artnetnode.cpp
  *
  */
-
-/* Copyright (C) 2016-2025 by Arjan van Vught mailto:info@gd32-dmx.org
+/* Copyright (C) 2016-2026 by Arjan van Vught mailto:info@gd32-dmx.org
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -84,7 +83,7 @@ ArtNetNode::ArtNetNode()
     art_poll_reply_.Oem = ArtNetConst::kOemId[1];
     art_poll_reply_.EstaMan[0] = ArtNetConst::kEstaId[1];
     art_poll_reply_.EstaMan[1] = ArtNetConst::kEstaId[0];
-     network::iface::CopyMacAddressTo(art_poll_reply_.MAC);
+    network::iface::CopyMacAddressTo(art_poll_reply_.MAC);
 #if (ARTNET_VERSION >= 4)
     art_poll_reply_.AcnPriority = e131::priority::kDefault;
 #endif
@@ -98,7 +97,7 @@ ArtNetNode::ArtNetNode()
     SetLongName(nullptr); // Set default long name
 
     memset(&node_, 0, sizeof(struct artnetnode::Node));
-    node_.ip_timecode = net::GetBroadcastIp();
+    node_.ip_timecode = network::GetBroadcastIp();
 
     for (auto& port : node_.port)
     {
@@ -117,7 +116,7 @@ ArtNetNode::ArtNetNode()
         output_port_[port_index].source_b.physical = 0x100;
         output_port_[port_index].good_output_b = artnet::GoodOutputB::kRdmDisabled | artnet::GoodOutputB::kDiscoveryNotRunning;
         memset(&input_port_[port_index], 0, sizeof(struct artnetnode::InputPort));
-        input_port_[port_index].destination_ip = net::GetBroadcastIp();
+        input_port_[port_index].destination_ip = network::GetBroadcastIp();
     }
 
 #if defined(ARTNET_HAVE_DMXIN)
@@ -165,9 +164,9 @@ void ArtNetNode::Start()
     art_poll_reply_.Status2 |=
         artnet::Status2::kPortAddress15Bit | (artnet::kVersion >= 4 ? artnet::Status2::kSacnAbleToSwitch : artnet::Status2::kSacnNoSwitch);
     art_poll_reply_.Status2 &= static_cast<uint8_t>(~artnet::Status2::kIpDhcp);
-    art_poll_reply_.Status2 |=  network::iface::IsDhcpUsed() ? artnet::Status2::kIpDhcp : artnet::Status2::kIpManualy;
+    art_poll_reply_.Status2 |= network::iface::Dhcp() ? artnet::Status2::kIpDhcp : artnet::Status2::kIpManualy;
     art_poll_reply_.Status2 &= static_cast<uint8_t>(~artnet::Status2::kDhcpCapable);
-    art_poll_reply_.Status2 |=  network::iface::IsDhcpCapable() ? artnet::Status2::kDhcpCapable : static_cast<uint8_t>(0);
+    art_poll_reply_.Status2 |= network::iface::IsDhcpCapable() ? artnet::Status2::kDhcpCapable : static_cast<uint8_t>(0);
 #if defined(ENABLE_HTTPD) && defined(ENABLE_CONTENT)
     art_poll_reply_.Status2 |= artnet::Status2::kWebBrowserSupport;
 #endif
@@ -183,7 +182,7 @@ void ArtNetNode::Start()
     art_poll_reply_.Status3 |= artnet::Status3::kOutputSwitch;
 #endif
 
-    handle_ = net::udp::Begin(artnet::kUdpPort, StaticCallbackFunction);
+    handle_ = network::udp::Begin(artnet::kUdpPort, StaticCallbackFunction);
     assert(handle_ != -1);
 
 #if defined(ARTNET_HAVE_DMXIN)
@@ -364,12 +363,12 @@ void ArtNetNode::SetLocalMerging()
             {
                 if (!node_.port[output_port_index].local_merge)
                 {
-                    output_port_[output_port_index].source_a.ip = net::IPADDR_LOOPBACK;
+                    output_port_[output_port_index].source_a.ip = network::kIpaddrLoopback;
                     DEBUG_PUTS("Local merge Source A");
                 }
                 else
                 {
-                    output_port_[output_port_index].source_b.ip = net::IPADDR_LOOPBACK;
+                    output_port_[output_port_index].source_b.ip = network::kIpaddrLoopback;
                     DEBUG_PUTS("Local merge Source B");
                 }
 
@@ -557,13 +556,13 @@ void ArtNetNode::SetFailSafe(artnet::FailSafe fail_safe)
 
         case artnet::FailSafe::kRecord:
 #if defined(ARTNET_HAVE_FAILSAFE_RECORD)
-            assert(0);
+            assert(false && "case artnet::FailSafe::kRecord");
             __builtin_unreachable();
 #endif
             break;
 
         default:
-            [[unlikely]] assert(0);
+            [[unlikely]] assert(false && "Invalid fail_safe");
             __builtin_unreachable();
             break;
     }
@@ -672,7 +671,7 @@ void ArtNetNode::SetNetworkDataLossCondition()
 #endif
             break;
         default:
-            assert(0);
+            assert(false && "Invalid kNetworkloss");
             break;
     }
 
@@ -738,7 +737,8 @@ void ArtNetNode::Print()
                 printf("  Port %-2u %-4u", static_cast<unsigned int>(port_index), static_cast<unsigned int>(kUniverse));
                 if (node_.port[port_index].protocol == artnet::PortProtocol::kArtnet)
                 {
-                    const auto kDestinationIp = (input_port_[port_index].destination_ip == 0 ? net::GetBroadcastIp() : input_port_[port_index].destination_ip);
+                    const auto kDestinationIp =
+                        (input_port_[port_index].destination_ip == 0 ? network::GetBroadcastIp() : input_port_[port_index].destination_ip);
                     printf(" -> " IPSTR, IP2STR(kDestinationIp));
                 }
 #if (ARTNET_VERSION >= 4)

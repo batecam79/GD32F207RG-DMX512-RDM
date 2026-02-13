@@ -2,7 +2,7 @@
  * @file artnetnode.h
  *
  */
-/* Copyright (C) 2016-2025 by Arjan van Vught mailto:info@gd32-dmx.org
+/* Copyright (C) 2016-2026 by Arjan van Vught mailto:info@gd32-dmx.org
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -240,7 +240,7 @@ class ArtNetNode
     void HandleShowFile(const artnet::ArtDmx* artdmx)
     {
         current_millis_ = hal::Millis();
-        ip_address_from_ = net::GetPrimaryIp();
+        ip_address_from_ = network::GetPrimaryIp();
         receive_buffer_ = reinterpret_cast<uint8_t*>(const_cast<artnet::ArtDmx*>(artdmx));
         HandleDmx();
     }
@@ -282,7 +282,7 @@ class ArtNetNode
     {
         assert(timecode != nullptr);
         memcpy(&art_time_code_.Frames, timecode, sizeof(struct artnet::TimeCode));
-        net::udp::Send(handle_, reinterpret_cast<const uint8_t*>(&art_time_code_), sizeof(struct artnet::ArtTimeCode), node_.ip_timecode, artnet::kUdpPort);
+        network::udp::Send(handle_, reinterpret_cast<const uint8_t*>(&art_time_code_), sizeof(struct artnet::ArtTimeCode), node_.ip_timecode, artnet::kUdpPort);
     }
 
     void SetArtTimeCodeCallbackFunction(ArtTimeCodeCallbackFunctionPtr art_time_code_callback_function_ptr)
@@ -395,7 +395,7 @@ class ArtNetNode
     void UpdateMergeStatus(uint32_t port_index);
     void CheckMergeTimeouts(uint32_t port_index);
 
-    void ProcessPollReply(uint32_t port_index, uint32_t& num_ports_input, uint32_t& num_ports_output);
+    void ProcessPollReply(uint32_t port_index);
     void SendPollReply(uint32_t port_index, uint32_t destination_ip, artnet::ArtPollQueue* poll_queue = nullptr);
 
     void SendTodRequest(uint32_t port_index);

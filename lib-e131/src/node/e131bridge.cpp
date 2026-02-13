@@ -2,7 +2,7 @@
  * @file e131bridge.cpp
  *
  */
-/* Copyright (C) 2016-2025 by Arjan van Vught mailto:info@gd32-dmx.org
+/* Copyright (C) 2016-2026 by Arjan van Vught mailto:info@gd32-dmx.org
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -42,14 +42,14 @@
 #include "hal_uuid.h"
 #include "hal_boardinfo.h"
 #include "network.h"
-#include "net/igmp.h"
+#include "core/ip4/igmp.h"
 #include "softwaretimers.h"
 #include "hal_millis.h"
 #include "hal_statusled.h"
 #include "hal_panelled.h"
 #include "hal_statusled.h"
 #include "hal.h"
- #include "firmware/debug/debug_debug.h"
+#include "firmware/debug/debug_debug.h"
 
 E131Bridge::E131Bridge()
 {
@@ -79,13 +79,13 @@ E131Bridge::E131Bridge()
 #if defined(E131_HAVE_DMXIN) || defined(NODE_SHOWFILE)
     char source_name[e131::kSourceNameLength];
     uint8_t length;
-    snprintf(source_name, e131::kSourceNameLength, "%.48s %s",  network::iface::GetHostName(), hal::BoardName(length));
+    snprintf(source_name, e131::kSourceNameLength, "%.48s %s", network::iface::HostName(), hal::BoardName(length));
     SetSourceName(source_name);
 
     hal::UuidCopy(cid_);
 #endif
 
-    handle_ = net::udp::Begin(e131::kUdpPort, E131Bridge::StaticCallbackFunctionUdp);
+    handle_ = network::udp::Begin(e131::kUdpPort, E131Bridge::StaticCallbackFunctionUdp);
     assert(handle_ != -1);
 
     SetLongName(nullptr); // Set default long name
@@ -121,7 +121,7 @@ void E131Bridge::GetLongNameDefault(char* long_name)
 void E131Bridge::Start()
 {
 #if defined(E131_HAVE_DMXIN)
-    const auto kIpMulticast = net::convert_to_uint(239, 255, 0, 0);
+    const auto kIpMulticast = network::ConvertToUint(239, 255, 0, 0);
     discovery_ip_address_ = kIpMulticast | ((e131::universe::kDiscovery & static_cast<uint32_t>(0xFF)) << 24) | ((e131::universe::kDiscovery & 0xFF00) << 8);
     FillDataPacket();
     FillDiscoveryPacket();
@@ -229,7 +229,7 @@ void E131Bridge::SetSynchronizationAddress(bool source_a, bool source_b, uint16_
         return;
     }
 
-    net::igmp::JoinGroup(handle_, e131::UniverseToMulticastIp(synchronization_address));
+    network::igmp::JoinGroup(handle_, e131::UniverseToMulticastIp(synchronization_address));
 
     DEBUG_EXIT();
 }
@@ -257,7 +257,7 @@ void E131Bridge::JoinUniverse(uint32_t port_index, uint16_t universe)
     }
 
     DEBUG_PUTS("Join");
-    net::igmp::JoinGroup(handle_, e131::UniverseToMulticastIp(universe));
+    network::igmp::JoinGroup(handle_, e131::UniverseToMulticastIp(universe));
 
     DEBUG_EXIT();
 }
@@ -285,7 +285,7 @@ void E131Bridge::LeaveUniverse(uint32_t port_index, uint16_t universe)
     }
 
     DEBUG_PUTS("Leave");
-    net::igmp::LeaveGroup(handle_, e131::UniverseToMulticastIp(universe));
+    network::igmp::LeaveGroup(handle_, e131::UniverseToMulticastIp(universe));
 
     DEBUG_EXIT();
 }
@@ -317,12 +317,12 @@ void E131Bridge::SetLocalMerging()
             {
                 if (!bridge_.port[output_port_index].local_merge)
                 {
-                    output_port_[output_port_index].source_a.ip = net::IPADDR_LOOPBACK;
+                    output_port_[output_port_index].source_a.ip = network::kIpaddrLoopback;
                     DEBUG_PUTS("Local merge Source A");
                 }
                 else
                 {
-                    output_port_[output_port_index].source_b.ip = net::IPADDR_LOOPBACK;
+                    output_port_[output_port_index].source_b.ip = network::kIpaddrLoopback;
                     DEBUG_PUTS("Local merge Source B");
                 }
 
@@ -348,12 +348,12 @@ void E131Bridge::SetUniverse(uint32_t port_index, uint16_t universe)
 
     assert(port_index < dmxnode::kMaxPorts);
     assert((universe >= e131::universe::kDefault) && (universe <= e131::universe::kMax));
-    
+
     if (bridge_.port[port_index].universe == universe)
     {
-		DEBUG_EXIT();
-		return;
-	}
+        DEBUG_EXIT();
+        return;
+    }
 
     if (bridge_.port[port_index].direction == dmxnode::PortDirection::kOutput)
     {
@@ -363,14 +363,14 @@ void E131Bridge::SetUniverse(uint32_t port_index, uint16_t universe)
 
     bridge_.port[port_index].universe = universe;
     input_port_[port_index].multicast_ip = e131::UniverseToMulticastIp(universe);
-    
-#if defined(E131_HAVE_DMXIN)    
+
+#if defined(E131_HAVE_DMXIN)
     if (state_.status == e131bridge::Status::kOn)
     {
-		SetLocalMerging();
-	}
-#endif	
-    
+        SetLocalMerging();
+    }
+#endif
+
     DEBUG_EXIT();
 }
 
@@ -440,13 +440,13 @@ void E131Bridge::SetDirection(uint32_t port_index, dmxnode::PortDirection port_d
 
         bridge_.port[port_index].direction = dmxnode::PortDirection::kOutput;
     }
-    
-#if defined(E131_HAVE_DMXIN)    
+
+#if defined(E131_HAVE_DMXIN)
     if (state_.status == e131bridge::Status::kOn)
     {
-		SetLocalMerging();
-	}
-#endif	    
+        SetLocalMerging();
+    }
+#endif
 }
 
 #if defined(E131_HAVE_DMXIN)
@@ -1066,7 +1066,7 @@ void E131Bridge::SetNetworkDataLossCondition(bool source_a, bool source_b)
                 break;
             default:
                 DEBUG_PRINTF("state_.failsafe=%u", static_cast<uint32_t>(state_.failsafe));
-                assert(0);
+                assert(false && "Invalid state_.failsafe");
                 break;
         }
     }
